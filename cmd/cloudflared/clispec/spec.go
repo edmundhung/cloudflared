@@ -44,17 +44,8 @@ type Command struct {
 // Argument describes one positional argument accepted by a command.
 type Argument struct {
 	Name     string `json:"name"`
-	Usage    string `json:"usage,omitempty"`
 	Required bool   `json:"required,omitempty"`
 	Variadic bool   `json:"variadic,omitempty"`
-}
-
-// CommandArguments associates structured positional arguments with a command
-// path. urfave/cli only exposes free-form ArgsUsage text, so cloudflared owns
-// these annotations separately from the runtime command parser.
-type CommandArguments struct {
-	Path      []string
-	Arguments []Argument
 }
 
 // Option describes a urfave/cli flag without serializing its value. Default
@@ -73,7 +64,7 @@ type Option struct {
 
 // Build constructs a manifest from the same command and flag definitions used
 // by the cloudflared executable.
-func Build(version string, globalFlags []cli.Flag, commands []*cli.Command, commandArguments []CommandArguments) (Manifest, error) {
+func Build(version string, globalFlags []cli.Flag, commands []*cli.Command) (Manifest, error) {
 	if strings.TrimSpace(version) == "" {
 		return Manifest{}, fmt.Errorf("cloudflared version must not be empty")
 	}
@@ -88,23 +79,11 @@ func Build(version string, globalFlags []cli.Flag, commands []*cli.Command, comm
 		CloudflaredVersion: version,
 		GlobalOptions:      globalOptions,
 	}
-	argumentsByPath, err := buildCommandArguments(commandArguments)
-	if err != nil {
-		return Manifest{}, err
-	}
 	seen := make(map[string]struct{})
 	for _, command := range commands {
-		if err := appendCommand(&manifest.Commands, seen, argumentsByPath, nil, command); err != nil {
+		if err := appendCommand(&manifest.Commands, seen, nil, command); err != nil {
 			return Manifest{}, err
 		}
-	}
-	if len(argumentsByPath) != 0 {
-		paths := make([]string, 0, len(argumentsByPath))
-		for path := range argumentsByPath {
-			paths = append(paths, strings.ReplaceAll(path, "\x00", " "))
-		}
-		sort.Strings(paths)
-		return Manifest{}, fmt.Errorf("positional arguments reference unknown command %q", paths[0])
 	}
 	sort.Slice(manifest.Commands, func(i, j int) bool {
 		return strings.Join(manifest.Commands[i].Path, "\x00") < strings.Join(manifest.Commands[j].Path, "\x00")
@@ -123,7 +102,7 @@ func WriteJSON(w io.Writer, manifest Manifest) error {
 	return nil
 }
 
-func appendCommand(target *[]Command, seen map[string]struct{}, argumentsByPath map[string][]Argument, parent []string, source *cli.Command) error {
+func appendCommand(target *[]Command, seen map[string]struct{}, parent []string, source *cli.Command) error {
 	if source == nil {
 		return fmt.Errorf("command beneath %q is nil", strings.Join(parent, " "))
 	}
@@ -137,8 +116,10 @@ func appendCommand(target *[]Command, seen map[string]struct{}, argumentsByPath 
 		return fmt.Errorf("duplicate command path %q", strings.Join(path, " "))
 	}
 	seen[key] = struct{}{}
-	arguments := argumentsByPath[key]
-	delete(argumentsByPath, key)
+	arguments, err := parseArgsUsage(source.ArgsUsage)
+	if err != nil {
+		return fmt.Errorf("command %q: %w", strings.Join(path, " "), err)
+	}
 
 	options, err := buildOptions(source.Flags)
 	if err != nil {
@@ -159,54 +140,58 @@ func appendCommand(target *[]Command, seen map[string]struct{}, argumentsByPath 
 	})
 
 	for _, child := range source.Subcommands {
-		if err := appendCommand(target, seen, argumentsByPath, path, child); err != nil {
+		if err := appendCommand(target, seen, path, child); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func buildCommandArguments(commandArguments []CommandArguments) (map[string][]Argument, error) {
-	result := make(map[string][]Argument, len(commandArguments))
-	for _, command := range commandArguments {
-		if len(command.Path) == 0 {
-			return nil, fmt.Errorf("positional arguments have an empty command path")
-		}
-		for _, component := range command.Path {
-			if strings.TrimSpace(component) == "" {
-				return nil, fmt.Errorf("positional arguments have an empty command path component")
-			}
-		}
-		key := strings.Join(command.Path, "\x00")
-		if _, ok := result[key]; ok {
-			return nil, fmt.Errorf("duplicate positional arguments for command %q", strings.Join(command.Path, " "))
+func parseArgsUsage(argsUsage string) ([]Argument, error) {
+	tokens := strings.Fields(argsUsage)
+	arguments := make([]Argument, 0, len(tokens))
+	seenNames := make(map[string]struct{}, len(tokens))
+	optionalSeen := false
+	for i, token := range tokens {
+		if len(token) < 3 {
+			return nil, fmt.Errorf("invalid argsUsage token %q", token)
 		}
 
-		arguments := make([]Argument, len(command.Arguments))
-		copy(arguments, command.Arguments)
-		seenNames := make(map[string]struct{}, len(arguments))
-		optionalSeen := false
-		for i, argument := range arguments {
-			if strings.TrimSpace(argument.Name) == "" {
-				return nil, fmt.Errorf("command %q has a positional argument with no name", strings.Join(command.Path, " "))
-			}
-			if _, ok := seenNames[argument.Name]; ok {
-				return nil, fmt.Errorf("command %q has duplicate positional argument %q", strings.Join(command.Path, " "), argument.Name)
-			}
-			seenNames[argument.Name] = struct{}{}
-			if optionalSeen && argument.Required {
-				return nil, fmt.Errorf("command %q has required positional argument %q after an optional argument", strings.Join(command.Path, " "), argument.Name)
-			}
-			if !argument.Required {
-				optionalSeen = true
-			}
-			if argument.Variadic && i != len(arguments)-1 {
-				return nil, fmt.Errorf("command %q has non-final variadic positional argument %q", strings.Join(command.Path, " "), argument.Name)
-			}
+		argument := Argument{}
+		switch {
+		case token[0] == '<' && token[len(token)-1] == '>':
+			argument.Required = true
+		case token[0] == '[' && token[len(token)-1] == ']':
+		default:
+			return nil, fmt.Errorf("invalid argsUsage token %q: use <required> or [optional]", token)
 		}
-		result[key] = arguments
+
+		name := token[1 : len(token)-1]
+		if strings.HasSuffix(name, "...") {
+			argument.Variadic = true
+			name = strings.TrimSuffix(name, "...")
+		}
+		if name == "" || strings.ContainsAny(name, "<>[]") {
+			return nil, fmt.Errorf("invalid argsUsage name %q", name)
+		}
+		argument.Name = name
+
+		if _, ok := seenNames[name]; ok {
+			return nil, fmt.Errorf("duplicate positional argument %q", name)
+		}
+		seenNames[name] = struct{}{}
+		if optionalSeen && argument.Required {
+			return nil, fmt.Errorf("required positional argument %q follows an optional argument", name)
+		}
+		if !argument.Required {
+			optionalSeen = true
+		}
+		if argument.Variadic && i != len(tokens)-1 {
+			return nil, fmt.Errorf("variadic positional argument %q is not last", name)
+		}
+		arguments = append(arguments, argument)
 	}
-	return result, nil
+	return arguments, nil
 }
 
 func buildOptions(flags []cli.Flag) ([]Option, error) {

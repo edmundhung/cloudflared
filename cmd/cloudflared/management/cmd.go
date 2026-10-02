@@ -40,6 +40,7 @@ func buildTokenSubcommand() *cli.Command {
 		Action:      cliutil.ConfiguredAction(tokenCommand),
 		Usage:       "Get management access jwt for a specific resource",
 		UsageText:   "cloudflared management token --resource <resource> TUNNEL_ID",
+		ArgsUsage:   "<tunnel-id>",
 		Description: "Get management access jwt for a tunnel with specified resource permissions (logs, admin, host_details)",
 		Hidden:      true,
 		Flags: []cli.Flag{

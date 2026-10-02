@@ -93,7 +93,7 @@ func Commands() []*cli.Command {
 					Name:      "login",
 					Action:    cliutil.Action(login),
 					Usage:     "login <url of access application>",
-					ArgsUsage: "url of Access application",
+					ArgsUsage: "[url]",
 					Description: `The login subcommand initiates an authentication flow with your identity provider.
 					The subcommand will launch a browser. For headless systems, a url is provided.
 					Once authenticated with your identity provider, the login command will generate a JSON Web Token (JWT)
@@ -124,14 +124,14 @@ func Commands() []*cli.Command {
 					Usage:  "curl [--allow-request, -ar] <url> [<curl args>...]",
 					Description: `The curl subcommand wraps curl and automatically injects the JWT into a cf-access-token
 					header when using curl to reach an application behind Access.`,
-					ArgsUsage:       "allow-request will allow the curl request to continue even if the jwt is not present.",
+					ArgsUsage:       "<url> [curl-args...]",
 					SkipFlagParsing: true,
 				},
 				{
 					Name:        "token",
 					Action:      cliutil.Action(generateToken),
 					Usage:       "token <url of access application>",
-					ArgsUsage:   "url of Access application",
+					ArgsUsage:   "[url]",
 					Description: `The token subcommand produces a JWT which can be used to authenticate requests.`,
 					Flags: []cli.Flag{
 						&cli.StringFlag{
@@ -283,9 +283,13 @@ func login(c *cli.Context) error {
 	// Chatty by default for backward compat. The new --app flag
 	// is an implicit opt-out of the backwards-compatible chatty output.
 	if c.Bool("no-verbose") || c.IsSet(appURLFlag) {
-		fmt.Fprint(os.Stdout, cfdToken)
+		if _, err := fmt.Fprint(os.Stdout, cfdToken); err != nil {
+			return err
+		}
 	} else {
-		fmt.Fprintf(os.Stdout, "Successfully fetched your token:\n\n%s\n\n", cfdToken)
+		if _, err := fmt.Fprintf(os.Stdout, "Successfully fetched your token:\n\n%s\n\n", cfdToken); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -329,7 +333,7 @@ func curl(c *cli.Context) error {
 	if err != nil || tok == "" {
 		if allowRequest {
 			log.Info().Msg("You don't have an Access token set. Please run access token <access application> to fetch one.")
-			return run("curl", cmdArgs...)
+			return runCurl(cmdArgs...)
 		}
 		tok, err = token.FetchToken(appURL, appInfo, c.Bool(cfdflags.AutoCloseInterstitial), c.Bool(fedrampFlag), log)
 		if err != nil {
@@ -340,12 +344,13 @@ func curl(c *cli.Context) error {
 
 	cmdArgs = append(cmdArgs, "-H")
 	cmdArgs = append(cmdArgs, fmt.Sprintf("%s: %s", carrier.CFAccessTokenHeader, tok))
-	return run("curl", cmdArgs...)
+	return runCurl(cmdArgs...)
 }
 
-// run kicks off a shell task and pipe the results to the respective std pipes
-func run(cmd string, args ...string) error {
-	c := exec.Command(cmd, args...)
+// runCurl kicks off curl and pipes the results to the respective std pipes.
+func runCurl(args ...string) error {
+	//nolint:gosec // curl arguments are intentionally supplied by the user.
+	c := exec.Command("curl", args...)
 	c.Stdin = os.Stdin
 	stderr, err := c.StderrPipe()
 	if err != nil {
@@ -533,6 +538,8 @@ func cloudflaredPath() string {
 
 // isFileThere will check for the presence of candidate path
 func isFileThere(candidate string) bool {
+	// candidate is the current executable or a path assembled from PATH entries.
+	//nolint:gosec
 	fi, err := os.Stat(candidate)
 	if err != nil || fi.IsDir() || !fi.Mode().IsRegular() {
 		return false
@@ -595,7 +602,7 @@ func isTokenValid(options *carrier.StartOptions, log *zerolog.Logger) (bool, err
 	if err != nil {
 		return false, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// A redirect to login means the token was invalid.
 	return !carrier.IsAccessResponse(resp), nil

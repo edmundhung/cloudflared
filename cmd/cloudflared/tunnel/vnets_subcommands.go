@@ -37,7 +37,7 @@ var (
 		Name:    "force",
 		Aliases: []string{"f"},
 		Usage: "Force the deletion of the virtual network even if it is being relied upon by other resources. Those" +
-			"resources will either be deleted (e.g. IP Routes) or moved to the current default virutal network.",
+			"resources will either be deleted (e.g. IP Routes) or moved to the current default virtual network.",
 	}
 )
 
@@ -62,6 +62,7 @@ to another Virtual Network Y).`,
 				Action:    cliutil.ConfiguredAction(addVirtualNetworkCommand),
 				Usage:     "Add a new virtual network to which IP routes can be attached",
 				UsageText: "cloudflared tunnel [--config FILEPATH] network add [flags] NAME [\"comment\"]",
+				ArgsUsage: "<name> [comment]",
 				Description: `Adds a new virtual network. You can then attach IP routes to this virtual network with "cloudflared tunnel route ip"
 commands. By doing so, such route(s) become segregated from route(s) in another virtual networks. Note that all
 routes exist within some virtual network. If you do not specify any, then the system pre-creates a default virtual
@@ -86,6 +87,7 @@ be the current default.`,
 				Action:    cliutil.ConfiguredAction(deleteVirtualNetworkCommand),
 				Usage:     "Delete a virtual network",
 				UsageText: "cloudflared tunnel [--config FILEPATH] network delete VIRTUAL_NETWORK",
+				ArgsUsage: "<virtual-network>",
 				Description: `Deletes the virtual network (given its ID or name). This is only possible if that virtual network is unused. 
 A virtual network may be used by IP routes or by WARP devices.`,
 				Flags:  []cli.Flag{vnetForceDeleteFlag},
@@ -96,6 +98,7 @@ A virtual network may be used by IP routes or by WARP devices.`,
 				Action:    cliutil.ConfiguredAction(updateVirtualNetworkCommand),
 				Usage:     "Update a virtual network",
 				UsageText: "cloudflared tunnel [--config FILEPATH] network update [flags] VIRTUAL_NETWORK",
+				ArgsUsage: "<virtual-network>",
 				Description: `Updates the virtual network (given its ID or name). If this virtual network is updated to become the new
 default, then the previously existing default virtual network will also be modified to no longer be the default.
 You cannot update a virtual network to not be the default anymore directly. Instead, you should create a new
@@ -108,7 +111,7 @@ default or update an existing one to become the default.`,
 }
 
 func listVirtualNetworksFlags() []cli.Flag {
-	flags := make([]cli.Flag, 0)
+	flags := make([]cli.Flag, 0, len(cfapi.VnetFilterFlags)+1)
 	flags = append(flags, cfapi.VnetFilterFlags...)
 	flags = append(flags, outputFormatFlag)
 	return flags
@@ -286,7 +289,7 @@ func formatAndPrintVnetsList(vnets []*cfapi.VirtualNetwork) {
 	)
 
 	writer := tabwriter.NewWriter(os.Stdout, minWidth, tabWidth, padding, padChar, flags)
-	defer writer.Flush()
+	defer func() { _ = writer.Flush() }()
 
 	_, _ = fmt.Fprintln(writer, "ID\tNAME\tIS DEFAULT\tCOMMENT\tCREATED\tDELETED\t")
 

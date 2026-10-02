@@ -32,7 +32,6 @@ func generate(version string, output string, stdout io.Writer) error {
 		version,
 		cliapp.Flags(),
 		cliapp.Commands(func(*cli.Context) {}),
-		cliapp.CommandArguments(),
 	)
 	if err != nil {
 		return err

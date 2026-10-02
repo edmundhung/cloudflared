@@ -69,7 +69,7 @@ func buildTestURLCommand() *cli.Command {
 		Action:    cliutil.ConfiguredAction(testURLCommand),
 		Usage:     "Check which ingress rule matches a given request URL",
 		UsageText: "cloudflared tunnel [--config FILEPATH] ingress rule URL",
-		ArgsUsage: "URL",
+		ArgsUsage: "<url>",
 		Description: "Check which ingress rule matches a given request URL. " +
 			"Ingress rules match a request's hostname and path. Hostname is " +
 			"optional and is either a full hostname like `www.example.com` or a " +

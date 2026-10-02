@@ -44,6 +44,7 @@ See "cloudflared tunnel vnet --help" for more information.`,
 				Action:    cliutil.ConfiguredAction(addRouteCommand),
 				Usage:     "Add a new network to the routing table reachable via a Tunnel",
 				UsageText: "cloudflared tunnel [--config FILEPATH] route ip add [flags] [CIDR] [TUNNEL] [COMMENT?]",
+				ArgsUsage: "<cidr> <tunnel> [comment]",
 				Description: `Adds a network IP route space (represented as a CIDR) to your routing table.
 That network IP space becomes reachable for requests egressing from a user's machine
 as long as it is using Cloudflare WARP client and is enrolled in the same account
@@ -71,6 +72,7 @@ which virtual network's routing table you want to add the route to with:
 				Action:    cliutil.ConfiguredAction(deleteRouteCommand),
 				Usage:     "Delete a row from your organization's private routing table",
 				UsageText: "cloudflared tunnel [--config FILEPATH] route ip delete [flags] [Route ID or CIDR]",
+				ArgsUsage: "<route>",
 				Description: `Deletes the row for the given route ID from your routing table. That portion of your network
 will no longer be reachable.`,
 				Flags: []cli.Flag{vnetFlag},
@@ -80,6 +82,7 @@ will no longer be reachable.`,
 				Action:    cliutil.ConfiguredAction(getRouteByIPCommand),
 				Usage:     "Check which row of the routing table matches a given IP.",
 				UsageText: "cloudflared tunnel [--config FILEPATH] route ip get [flags] [IP]",
+				ArgsUsage: "<ip>",
 				Description: `Checks which row of the routing table will be used to proxy a given IP. This helps check
 and validate your config. Note that if you use virtual networks, then you have
 to tell which virtual network whose routing table you want to use.`,
@@ -90,7 +93,7 @@ to tell which virtual network whose routing table you want to use.`,
 }
 
 func showRoutesFlags() []cli.Flag {
-	flags := make([]cli.Flag, 0)
+	flags := make([]cli.Flag, 0, len(cfapi.IpRouteFilterFlags)+1)
 	flags = append(flags, cfapi.IpRouteFilterFlags...)
 	flags = append(flags, outputFormatFlag)
 	return flags
@@ -232,7 +235,7 @@ func getRouteByIPCommand(c *cli.Context) error {
 	ipInput := c.Args().First()
 	ip := net.ParseIP(ipInput)
 	if ip == nil {
-		return fmt.Errorf("Invalid IP %s", ipInput)
+		return fmt.Errorf("invalid IP %s", ipInput)
 	}
 
 	params := cfapi.GetRouteByIpParams{
@@ -269,7 +272,7 @@ func formatAndPrintRouteList(routes []*cfapi.DetailedRoute) {
 	)
 
 	writer := tabwriter.NewWriter(os.Stdout, minWidth, tabWidth, padding, padChar, flags)
-	defer writer.Flush()
+	defer func() { _ = writer.Flush() }()
 
 	// Print column headers with tabbed columns
 	_, _ = fmt.Fprintln(writer, "ID\tNETWORK\tVIRTUAL NET ID\tCOMMENT\tTUNNEL ID\tTUNNEL NAME\tCREATED\tDELETED\t")

@@ -43,6 +43,7 @@ func buildTailManagementTokenSubcommand() *cli.Command {
 		Action:      cliutil.ConfiguredAction(managementTokenCommand),
 		Usage:       "Get management access jwt",
 		UsageText:   "cloudflared tail token TUNNEL_ID",
+		ArgsUsage:   "<tunnel-id>",
 		Description: `Get management access jwt for a tunnel`,
 		Hidden:      true,
 	}
@@ -68,6 +69,7 @@ func buildTailCommand(subcommands []*cli.Command) *cli.Command {
 		Action:    Run,
 		Usage:     "Stream logs from a remote cloudflared",
 		UsageText: "cloudflared tail [tail command options] [TUNNEL-ID]",
+		ArgsUsage: "[tunnel-id]",
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:    "connector-id",
@@ -308,7 +310,11 @@ func Run(c *cli.Context) error {
 		log.Error().Err(err).Msgf("unable to start management log streaming session")
 		return nil
 	}
-	defer conn.Close(websocket.StatusInternalError, "management connection was closed abruptly")
+	defer func() {
+		if err := conn.Close(websocket.StatusInternalError, "management connection was closed abruptly"); err != nil {
+			log.Debug().Err(err).Msg("unable to close management connection")
+		}
+	}()
 
 	// Once connection is established, send start_streaming event to begin receiving logs
 	err = management.WriteEvent(conn, ctx, &management.EventStartStreaming{
@@ -383,7 +389,9 @@ func Run(c *cli.Context) error {
 			log.Debug().Msg("closing management connection")
 			// Cleanly close the connection by sending a close message and then
 			// waiting (with timeout) for the server to close the connection.
-			conn.Close(websocket.StatusNormalClosure, "")
+			if err := conn.Close(websocket.StatusNormalClosure, ""); err != nil {
+				log.Debug().Err(err).Msg("unable to close management connection cleanly")
+			}
 			select {
 			case <-readerDone:
 			case <-time.After(time.Second):

@@ -30,10 +30,10 @@ arguments, flags, visibility, and parser behavior. Command options are local
 to that command; consumers can inherit options from parent paths and
 `globalOptions`.
 
-`argsUsage` preserves the free-form text supplied to `urfave/cli`. The
-`arguments` array separately records each positional argument's name, help
-text, requiredness, and whether it is variadic. `skipFlagParsing` marks
-passthrough commands, such as `cloudflared access curl`, whose remaining
+`argsUsage` is the source of truth for positional arguments. It uses the small
+grammar `<required>`, `[optional]`, and `[variadic...]`; the generator validates
+that grammar and emits the parsed shape in `arguments`. `skipFlagParsing`
+marks passthrough commands, such as `cloudflared access curl`, whose remaining
 arguments must not be interpreted as cloudflared flags.
 
 Option defaults are intentionally excluded because some cloudflared defaults
