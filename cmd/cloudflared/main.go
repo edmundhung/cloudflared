@@ -7,14 +7,14 @@ import (
 	"time"
 
 	"github.com/getsentry/sentry-go"
+	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
 	"go.uber.org/automaxprocs/maxprocs"
 
 	"github.com/cloudflare/cloudflared/cmd/cloudflared/access"
+	"github.com/cloudflare/cloudflared/cmd/cloudflared/cliapp"
 	"github.com/cloudflare/cloudflared/cmd/cloudflared/cliutil"
-	cfdflags "github.com/cloudflare/cloudflared/cmd/cloudflared/flags"
 	"github.com/cloudflare/cloudflared/cmd/cloudflared/management"
-	"github.com/cloudflare/cloudflared/cmd/cloudflared/proxydns"
 	"github.com/cloudflare/cloudflared/cmd/cloudflared/tail"
 	"github.com/cloudflare/cloudflared/cmd/cloudflared/tunnel"
 	"github.com/cloudflare/cloudflared/cmd/cloudflared/updater"
@@ -25,10 +25,6 @@ import (
 	"github.com/cloudflare/cloudflared/token"
 	"github.com/cloudflare/cloudflared/tracing"
 	"github.com/cloudflare/cloudflared/watcher"
-)
-
-const (
-	versionText = "Print the version"
 )
 
 var (
@@ -50,7 +46,9 @@ var (
 
 func main() {
 	// FIXME: TUN-8148: Disable QUIC_GO ECN due to bugs in proper detection if supported
-	os.Setenv("QUIC_GO_DISABLE_ECN", "1")
+	if err := os.Setenv("QUIC_GO_DISABLE_ECN", "1"); err != nil {
+		log.Fatal().Err(err).Msg("Failed to configure QUIC")
+	}
 	metrics.RegisterBuildInfo(BuildType, BuildTime, Version)
 	_, _ = maxprocs.Set()
 	bInfo := cliutil.GetBuildInfo(BuildType, Version)
@@ -62,7 +60,7 @@ func main() {
 	cli.VersionFlag = &cli.BoolFlag{
 		Name:    "version",
 		Aliases: []string{"v", "V"},
-		Usage:   versionText,
+		Usage:   cliapp.VersionText,
 	}
 
 	app := &cli.App{}
@@ -82,9 +80,9 @@ func main() {
 	and configure access control.
 
 	See https://developers.cloudflare.com/cloudflare-one/connections/connect-apps for more in-depth documentation.`
-	app.Flags = flags()
+	app.Flags = cliapp.Flags()
 	app.Action = action(graceShutdownC)
-	app.Commands = commands(cli.ShowVersion)
+	app.Commands = cliapp.Commands(cli.ShowVersion)
 
 	tunnel.Init(bInfo, graceShutdownC) // we need this to support the tunnel sub command...
 	access.Init(graceShutdownC, Version)
@@ -94,73 +92,6 @@ func main() {
 	tail.Init(bInfo)
 	management.Init(bInfo)
 	runApp(app, graceShutdownC)
-}
-
-func commands(version func(c *cli.Context)) []*cli.Command {
-	cmds := []*cli.Command{
-		{
-			Name:   "update",
-			Action: cliutil.ConfiguredAction(updater.Update),
-			Usage:  "Update the agent if a new version exists",
-			Flags: []cli.Flag{
-				&cli.BoolFlag{
-					Name:  "beta",
-					Usage: "specify if you wish to update to the latest beta version",
-				},
-				&cli.BoolFlag{
-					Name:   cfdflags.Force,
-					Usage:  "specify if you wish to force an upgrade to the latest version regardless of the current version",
-					Hidden: true,
-				},
-				&cli.BoolFlag{
-					Name:   "staging",
-					Usage:  "specify if you wish to use the staging url for updating",
-					Hidden: true,
-				},
-				&cli.StringFlag{
-					Name:   "version",
-					Usage:  "specify a version you wish to upgrade or downgrade to",
-					Hidden: false,
-				},
-			},
-			Description: `Looks for a new version on the official download server.
-If a new version exists, updates the agent binary and quits.
-Otherwise, does nothing.
-
-To determine if an update happened in a script, check for error code 11.`,
-		},
-		{
-			Name: "version",
-			Action: func(c *cli.Context) (err error) {
-				if c.Bool("short") {
-					fmt.Println(strings.Split(c.App.Version, " ")[0])
-					return nil
-				}
-				version(c)
-				return nil
-			},
-			Usage:       versionText,
-			Description: versionText,
-			Flags: []cli.Flag{
-				&cli.BoolFlag{
-					Name:    "short",
-					Aliases: []string{"s"},
-					Usage:   "print just the version number",
-				},
-			},
-		},
-	}
-	cmds = append(cmds, tunnel.Commands()...)
-	cmds = append(cmds, proxydns.Command()) // removed feature, only here for error message
-	cmds = append(cmds, access.Commands()...)
-	cmds = append(cmds, tail.Command())
-	cmds = append(cmds, management.Command())
-	return cmds
-}
-
-func flags() []cli.Flag {
-	flags := tunnel.Flags()
-	return append(flags, access.Flags()...)
 }
 
 func isEmptyInvocation(c *cli.Context) bool {
