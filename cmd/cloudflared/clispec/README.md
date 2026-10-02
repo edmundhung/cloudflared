@@ -9,7 +9,7 @@ Generate a manifest with:
 ```console
 go run ./cmd/cloudflared-manifest \
   -version "$(git describe --tags --always --match '[0-9][0-9][0-9][0-9].*.*')" \
-  -output cloudflared-cli-manifest-v1.json
+  -output cloudflared-cli-manifest.json
 ```
 
 The generator reads the same command constructors used by cloudflared. It
@@ -20,8 +20,8 @@ companion `.sha256` file.
 Each cloudflared release publishes both files as GitHub release assets:
 
 ```text
-https://github.com/cloudflare/cloudflared/releases/download/<version>/cloudflared-cli-manifest-v1.json
-https://github.com/cloudflare/cloudflared/releases/download/<version>/cloudflared-cli-manifest-v1.json.sha256
+https://github.com/cloudflare/cloudflared/releases/download/<version>/cloudflared-cli-manifest.json
+https://github.com/cloudflare/cloudflared/releases/download/<version>/cloudflared-cli-manifest.json.sha256
 ```
 
 ## Version 1

@@ -30,7 +30,7 @@ func TestGenerateToStdout(t *testing.T) {
 func TestGenerateToFile(t *testing.T) {
 	t.Parallel()
 
-	output := filepath.Join(t.TempDir(), "cloudflared-cli-manifest-v1.json")
+	output := filepath.Join(t.TempDir(), "cloudflared-cli-manifest.json")
 	require.NoError(t, generate("2026.9.3", output, nil))
 
 	info, err := os.Stat(output)

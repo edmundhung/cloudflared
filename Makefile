@@ -240,7 +240,7 @@ github-release-dryrun:
 .PHONY: cloudflared-cli-manifest
 cloudflared-cli-manifest:
 	@mkdir -p artifacts
-	go run -mod=readonly ./cmd/cloudflared-manifest -version $(VERSION) -output artifacts/cloudflared-cli-manifest-v1.json
+	go run -mod=readonly ./cmd/cloudflared-manifest -version $(VERSION) -output artifacts/cloudflared-cli-manifest.json
 
 .PHONY: github-release
 github-release:
