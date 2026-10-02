@@ -237,6 +237,11 @@ cloudflared-msi:
 github-release-dryrun:
 	python3 github_release.py --path $(PWD)/built_artifacts --release-version $(VERSION) --dry-run
 
+.PHONY: cloudflared-cli-manifest
+cloudflared-cli-manifest:
+	@mkdir -p artifacts
+	go run -mod=readonly ./cmd/cloudflared-manifest -version $(VERSION) -output artifacts/cloudflared-cli-manifest-v1.json
+
 .PHONY: github-release
 github-release:
 	python3 github_release.py --path $(PWD)/artifacts/ --release-version $(VERSION)

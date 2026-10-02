@@ -14,7 +14,15 @@ go run ./cmd/cloudflared-manifest \
 
 The generator reads the same command constructors used by cloudflared. It
 fails when it encounters an unsupported flag type so that the published
-manifest cannot silently omit CLI behavior.
+manifest cannot silently omit CLI behavior. File output also writes a
+companion `.sha256` file.
+
+Each cloudflared release publishes both files as GitHub release assets:
+
+```text
+https://github.com/cloudflare/cloudflared/releases/download/<version>/cloudflared-cli-manifest-v1.json
+https://github.com/cloudflare/cloudflared/releases/download/<version>/cloudflared-cli-manifest-v1.json.sha256
+```
 
 ## Version 1
 

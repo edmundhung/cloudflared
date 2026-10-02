@@ -2,7 +2,9 @@ package main
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -34,4 +36,17 @@ func TestGenerateToFile(t *testing.T) {
 	info, err := os.Stat(output)
 	require.NoError(t, err)
 	assert.Positive(t, info.Size())
+
+	//nolint:gosec // output is created beneath t.TempDir.
+	manifest, err := os.ReadFile(output)
+	require.NoError(t, err)
+	checksum := sha256.Sum256(manifest)
+	//nolint:gosec // the checksum is created beside output beneath t.TempDir.
+	checksumContents, err := os.ReadFile(output + ".sha256")
+	require.NoError(t, err)
+	assert.Equal(
+		t,
+		fmt.Sprintf("%x  %s\n", checksum, filepath.Base(output)),
+		string(checksumContents),
+	)
 }

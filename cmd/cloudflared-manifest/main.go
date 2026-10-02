@@ -5,10 +5,12 @@ package main
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"flag"
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
@@ -46,6 +48,12 @@ func generate(version string, output string, stdout io.Writer) error {
 	}
 	if err := os.WriteFile(output, contents.Bytes(), 0o600); err != nil {
 		return fmt.Errorf("write manifest output %q: %w", output, err)
+	}
+	checksum := sha256.Sum256(contents.Bytes())
+	checksumOutput := output + ".sha256"
+	checksumContents := fmt.Appendf(nil, "%x  %s\n", checksum, filepath.Base(output))
+	if err := os.WriteFile(checksumOutput, checksumContents, 0o600); err != nil {
+		return fmt.Errorf("write manifest checksum %q: %w", checksumOutput, err)
 	}
 	return nil
 }
