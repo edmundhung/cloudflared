@@ -93,7 +93,7 @@ func Commands() []*cli.Command {
 					Name:      "login",
 					Action:    cliutil.Action(login),
 					Usage:     "login <url of access application>",
-					ArgsUsage: "url of Access application",
+					ArgsUsage: "[url]",
 					Description: `The login subcommand initiates an authentication flow with your identity provider.
 					The subcommand will launch a browser. For headless systems, a url is provided.
 					Once authenticated with your identity provider, the login command will generate a JSON Web Token (JWT)
@@ -124,14 +124,21 @@ func Commands() []*cli.Command {
 					Usage:  "curl [--allow-request, -ar] <url> [<curl args>...]",
 					Description: `The curl subcommand wraps curl and automatically injects the JWT into a cf-access-token
 					header when using curl to reach an application behind Access.`,
-					ArgsUsage:       "allow-request will allow the curl request to continue even if the jwt is not present.",
+					ArgsUsage:       "<url> [curl-args...]",
 					SkipFlagParsing: true,
+					Flags: []cli.Flag{
+						&cli.BoolFlag{
+							Name:    "allow-request",
+							Aliases: []string{"ar"},
+							Usage:   "continue the request when no Access token is available",
+						},
+					},
 				},
 				{
 					Name:        "token",
 					Action:      cliutil.Action(generateToken),
 					Usage:       "token <url of access application>",
-					ArgsUsage:   "url of Access application",
+					ArgsUsage:   "[url]",
 					Description: `The token subcommand produces a JWT which can be used to authenticate requests.`,
 					Flags: []cli.Flag{
 						&cli.StringFlag{
@@ -283,8 +290,10 @@ func login(c *cli.Context) error {
 	// Chatty by default for backward compat. The new --app flag
 	// is an implicit opt-out of the backwards-compatible chatty output.
 	if c.Bool("no-verbose") || c.IsSet(appURLFlag) {
+		//nolint:errcheck // Preserve existing stdout error handling.
 		fmt.Fprint(os.Stdout, cfdToken)
 	} else {
+		//nolint:errcheck // Preserve existing stdout error handling.
 		fmt.Fprintf(os.Stdout, "Successfully fetched your token:\n\n%s\n\n", cfdToken)
 	}
 
@@ -345,6 +354,7 @@ func curl(c *cli.Context) error {
 
 // run kicks off a shell task and pipe the results to the respective std pipes
 func run(cmd string, args ...string) error {
+	//nolint:gosec // The command and arguments are intentionally supplied by the caller.
 	c := exec.Command(cmd, args...)
 	c.Stdin = os.Stdin
 	stderr, err := c.StderrPipe()
@@ -533,6 +543,8 @@ func cloudflaredPath() string {
 
 // isFileThere will check for the presence of candidate path
 func isFileThere(candidate string) bool {
+	// candidate is the current executable or a path assembled from PATH entries.
+	//nolint:gosec
 	fi, err := os.Stat(candidate)
 	if err != nil || fi.IsDir() || !fi.Mode().IsRegular() {
 		return false
@@ -595,6 +607,7 @@ func isTokenValid(options *carrier.StartOptions, log *zerolog.Logger) (bool, err
 	if err != nil {
 		return false, err
 	}
+	//nolint:errcheck // Preserve existing response-close behavior.
 	defer resp.Body.Close()
 
 	// A redirect to login means the token was invalid.

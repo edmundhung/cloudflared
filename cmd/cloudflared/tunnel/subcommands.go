@@ -254,6 +254,7 @@ func buildCreateCommand() *cli.Command {
 		Action:    cliutil.ConfiguredAction(createCommand),
 		Usage:     "Create a new tunnel with given name",
 		UsageText: "cloudflared tunnel [tunnel command options] create [subcommand options] NAME",
+		ArgsUsage: "<name>",
 		Description: `Creates a tunnel, registers it with Cloudflare edge and generates credential file used to run this tunnel.
   Use "cloudflared tunnel route" subcommand to map a DNS name to this tunnel and "cloudflared tunnel run" to start the connection.
 
@@ -511,6 +512,7 @@ func buildInfoCommand() *cli.Command {
 		Action:      cliutil.ConfiguredAction(tunnelInfo),
 		Usage:       "List details about the active connectors for a tunnel",
 		UsageText:   "cloudflared tunnel [tunnel command options] info [subcommand options] [TUNNEL]",
+		ArgsUsage:   "<tunnel>",
 		Description: "cloudflared tunnel info displays details about the active connectors for a given tunnel (identified by name or uuid).",
 		Flags: []cli.Flag{
 			outputFormatFlag,
@@ -673,6 +675,7 @@ func buildDeleteCommand() *cli.Command {
 		Action:             cliutil.ConfiguredAction(deleteCommand),
 		Usage:              "Delete existing tunnel by UUID or name",
 		UsageText:          "cloudflared tunnel [tunnel command options] delete [subcommand options] TUNNEL",
+		ArgsUsage:          "<tunnel...>",
 		Description:        "cloudflared tunnel delete will delete tunnels with the given tunnel UUIDs or names. A tunnel cannot be deleted if it has active connections. To delete the tunnel unconditionally, use -f flag.",
 		Flags:              []cli.Flag{credentialsFileFlagCLIOnly, forceDeleteFlag},
 		CustomHelpTemplate: commandHelpTemplate(),
@@ -734,6 +737,7 @@ func buildRunCommand() *cli.Command {
 		Action:    cliutil.ConfiguredAction(runCommand),
 		Usage:     "Proxy a local web server by running the given tunnel",
 		UsageText: "cloudflared tunnel [tunnel command options] run [subcommand options] [TUNNEL]",
+		ArgsUsage: "[tunnel]",
 		Description: `Runs the tunnel identified by name or UUID, creating highly available connections
   between your server and the Cloudflare edge. You can provide name or UUID of tunnel to run either as the
   last command line argument or in the configuration file using "tunnel: TUNNEL".
@@ -827,6 +831,7 @@ func buildCleanupCommand() *cli.Command {
 		Action:             cliutil.ConfiguredAction(cleanupCommand),
 		Usage:              "Cleanup tunnel connections",
 		UsageText:          "cloudflared tunnel [tunnel command options] cleanup [subcommand options] TUNNEL",
+		ArgsUsage:          "<tunnel...>",
 		Description:        "Delete connections for tunnels with the given UUIDs or names.",
 		Flags:              []cli.Flag{cleanupClientFlag},
 		CustomHelpTemplate: commandHelpTemplate(),
@@ -857,6 +862,7 @@ func buildTokenCommand() *cli.Command {
 		Action:             cliutil.ConfiguredAction(tokenCommand),
 		Usage:              "Fetch the credentials token for an existing tunnel (by name or UUID) that allows to run it",
 		UsageText:          "cloudflared tunnel [tunnel command options] token [subcommand options] TUNNEL",
+		ArgsUsage:          "<tunnel>",
 		Description:        "cloudflared tunnel token will fetch the credentials token for a given tunnel (by its name or UUID), which is then used to run the tunnel. This command fails if the tunnel does not exist or has been deleted. Use the flag `cloudflared tunnel token --cred-file /my/path/file.json TUNNEL` to output the token to the credentials JSON file. Note: this command only works for Tunnels created since cloudflared version 2022.3.0",
 		Flags:              []cli.Flag{credentialsFileFlagCLIOnly},
 		CustomHelpTemplate: commandHelpTemplate(),
@@ -931,6 +937,7 @@ Further information about managing Cloudflare WARP traffic to your tunnel is ava
 				Action:      cliutil.ConfiguredAction(routeDnsCommand),
 				Usage:       "HostnameRoute a hostname by creating a DNS CNAME record to a tunnel",
 				UsageText:   "cloudflared tunnel route dns [TUNNEL] [HOSTNAME]",
+				ArgsUsage:   "<tunnel> <hostname>",
 				Description: `Creates a DNS CNAME record hostname that points to the tunnel.`,
 				Flags:       []cli.Flag{overwriteDNSFlag},
 			},
@@ -939,6 +946,7 @@ Further information about managing Cloudflare WARP traffic to your tunnel is ava
 				Action:      cliutil.ConfiguredAction(routeLbCommand),
 				Usage:       "Use this tunnel as a load balancer origin, creating pool and load balancer if necessary",
 				UsageText:   "cloudflared tunnel route lb [TUNNEL] [HOSTNAME] [LB-POOL-NAME]",
+				ArgsUsage:   "<tunnel> <hostname> <pool>",
 				Description: `Creates Load Balancer with an origin pool that points to the tunnel.`,
 			},
 			buildRouteIPSubcommand(),
