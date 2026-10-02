@@ -25,12 +25,14 @@ The top-level document contains:
 - `globalOptions`: flags registered at the application level.
 - `commands`: a flattened, sorted list of commands.
 
-Each command records its complete path, aliases, help text, flags, visibility,
-and parser behavior. Command options are local to that command; consumers can
-inherit options from parent paths and `globalOptions`.
+Each command records its complete path, aliases, help text, positional
+arguments, flags, visibility, and parser behavior. Command options are local
+to that command; consumers can inherit options from parent paths and
+`globalOptions`.
 
-`argsUsage` remains the free-form text supplied to `urfave/cli`. Version 1 does
-not infer typed positional arguments from that text. `skipFlagParsing` marks
+`argsUsage` preserves the free-form text supplied to `urfave/cli`. The
+`arguments` array separately records each positional argument's name, help
+text, requiredness, and whether it is variadic. `skipFlagParsing` marks
 passthrough commands, such as `cloudflared access curl`, whose remaining
 arguments must not be interpreted as cloudflared flags.
 

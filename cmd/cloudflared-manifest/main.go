@@ -28,7 +28,12 @@ func main() {
 }
 
 func generate(version string, output string, stdout io.Writer) error {
-	manifest, err := clispec.Build(version, cliapp.Flags(), cliapp.Commands(func(*cli.Context) {}))
+	manifest, err := clispec.Build(
+		version,
+		cliapp.Flags(),
+		cliapp.Commands(func(*cli.Context) {}),
+		cliapp.CommandArguments(),
+	)
 	if err != nil {
 		return err
 	}

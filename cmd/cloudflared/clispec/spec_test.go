@@ -50,6 +50,14 @@ func TestBuildManifest(t *testing.T) {
 				},
 			},
 		},
+	}, []clispec.CommandArguments{
+		{
+			Path: []string{"access", "curl"},
+			Arguments: []clispec.Argument{
+				{Name: "url", Usage: "Access application URL", Required: true},
+				{Name: "curl-args", Usage: "Arguments forwarded to curl", Variadic: true},
+			},
+		},
 	})
 	require.NoError(t, err)
 
@@ -69,6 +77,10 @@ func TestBuildManifest(t *testing.T) {
 	curl := manifest.Commands[1]
 	assert.Equal(t, []string{"access", "curl"}, curl.Path)
 	assert.Equal(t, "<url> [<curl args>...]", curl.ArgsUsage)
+	assert.Equal(t, []clispec.Argument{
+		{Name: "url", Usage: "Access application URL", Required: true},
+		{Name: "curl-args", Usage: "Arguments forwarded to curl", Variadic: true},
+	}, curl.Arguments)
 	assert.True(t, curl.SkipFlagParsing)
 	assert.Equal(t, []clispec.Option{
 		{
@@ -95,6 +107,7 @@ func TestCloudflaredCommandTreeCanBeSerialized(t *testing.T) {
 		"2026.9.3",
 		cliapp.Flags(),
 		cliapp.Commands(func(*cli.Context) {}),
+		cliapp.CommandArguments(),
 	)
 	require.NoError(t, err)
 	assert.Greater(t, len(manifest.Commands), 20)
@@ -103,6 +116,13 @@ func TestCloudflaredCommandTreeCanBeSerialized(t *testing.T) {
 	assert.NotEmpty(t, tunnelDiag.Options)
 	accessCurl := findCommand(t, manifest, "access", "curl")
 	assert.True(t, accessCurl.SkipFlagParsing)
+	assert.Equal(t, []clispec.Argument{
+		{Name: "url", Usage: "URL of the Access application", Required: true},
+		{Name: "curl-args", Usage: "Arguments forwarded to curl", Variadic: true},
+	}, accessCurl.Arguments)
+	assert.Equal(t, []clispec.Argument{
+		{Name: "tunnel", Usage: "Tunnel name or UUID"},
+	}, findCommand(t, manifest, "tunnel", "run").Arguments)
 	assert.Equal(t, "forward", findCommand(t, manifest, "access").Aliases[0])
 }
 
@@ -113,6 +133,7 @@ func TestWriteJSONIsDeterministic(t *testing.T) {
 		"2026.9.3",
 		cliapp.Flags(),
 		cliapp.Commands(func(*cli.Context) {}),
+		cliapp.CommandArguments(),
 	)
 	require.NoError(t, err)
 
@@ -130,8 +151,63 @@ func TestBuildRejectsUnsupportedFlags(t *testing.T) {
 
 	_, err := clispec.Build("2026.9.3", []cli.Flag{
 		&cli.GenericFlag{Name: "unsupported"},
-	}, nil)
+	}, nil, nil)
 	require.ErrorContains(t, err, "unsupported option type")
+}
+
+func TestBuildRejectsInvalidCommandArguments(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		commandArguments []clispec.CommandArguments
+		errorContains    string
+	}{
+		"unknown command": {
+			commandArguments: []clispec.CommandArguments{{
+				Path:      []string{"missing"},
+				Arguments: []clispec.Argument{{Name: "value"}},
+			}},
+			errorContains: "unknown command",
+		},
+		"duplicate name": {
+			commandArguments: []clispec.CommandArguments{{
+				Path: []string{"known"},
+				Arguments: []clispec.Argument{
+					{Name: "value"},
+					{Name: "value"},
+				},
+			}},
+			errorContains: "duplicate positional argument",
+		},
+		"required after optional": {
+			commandArguments: []clispec.CommandArguments{{
+				Path: []string{"known"},
+				Arguments: []clispec.Argument{
+					{Name: "optional"},
+					{Name: "required", Required: true},
+				},
+			}},
+			errorContains: "after an optional argument",
+		},
+		"non-final variadic": {
+			commandArguments: []clispec.CommandArguments{{
+				Path: []string{"known"},
+				Arguments: []clispec.Argument{
+					{Name: "values", Required: true, Variadic: true},
+					{Name: "other", Required: true},
+				},
+			}},
+			errorContains: "non-final variadic",
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			_, err := clispec.Build("2026.9.3", nil, []*cli.Command{{Name: "known"}}, test.commandArguments)
+			require.ErrorContains(t, err, test.errorContains)
+		})
+	}
 }
 
 func findCommand(t *testing.T, manifest clispec.Manifest, path ...string) clispec.Command {
