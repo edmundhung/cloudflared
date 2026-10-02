@@ -107,6 +107,14 @@ func TestCloudflaredCommandTreeCanBeSerialized(t *testing.T) {
 	assert.NotEmpty(t, tunnelDiag.Options)
 	accessCurl := findCommand(t, manifest, "access", "curl")
 	assert.True(t, accessCurl.SkipFlagParsing)
+	assert.Equal(t, []clispec.Option{
+		{
+			Name:    "allow-request",
+			Aliases: []string{"ar"},
+			Type:    "boolean",
+			Usage:   "continue the request when no Access token is available",
+		},
+	}, accessCurl.Options)
 	assert.Equal(t, []clispec.Argument{
 		{Name: "url", Required: true},
 		{Name: "curl-args", Variadic: true},

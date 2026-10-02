@@ -126,6 +126,13 @@ func Commands() []*cli.Command {
 					header when using curl to reach an application behind Access.`,
 					ArgsUsage:       "<url> [curl-args...]",
 					SkipFlagParsing: true,
+					Flags: []cli.Flag{
+						&cli.BoolFlag{
+							Name:    "allow-request",
+							Aliases: []string{"ar"},
+							Usage:   "continue the request when no Access token is available",
+						},
+					},
 				},
 				{
 					Name:        "token",
