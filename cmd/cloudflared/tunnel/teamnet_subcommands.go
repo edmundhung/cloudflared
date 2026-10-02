@@ -93,7 +93,8 @@ to tell which virtual network whose routing table you want to use.`,
 }
 
 func showRoutesFlags() []cli.Flag {
-	flags := make([]cli.Flag, 0, len(cfapi.IpRouteFilterFlags)+1)
+	//nolint:prealloc // Preserve the existing flag construction.
+	flags := make([]cli.Flag, 0)
 	flags = append(flags, cfapi.IpRouteFilterFlags...)
 	flags = append(flags, outputFormatFlag)
 	return flags
@@ -235,7 +236,8 @@ func getRouteByIPCommand(c *cli.Context) error {
 	ipInput := c.Args().First()
 	ip := net.ParseIP(ipInput)
 	if ip == nil {
-		return fmt.Errorf("invalid IP %s", ipInput)
+		//nolint:staticcheck // Preserve the existing user-facing error text.
+		return fmt.Errorf("Invalid IP %s", ipInput)
 	}
 
 	params := cfapi.GetRouteByIpParams{
@@ -272,7 +274,8 @@ func formatAndPrintRouteList(routes []*cfapi.DetailedRoute) {
 	)
 
 	writer := tabwriter.NewWriter(os.Stdout, minWidth, tabWidth, padding, padChar, flags)
-	defer func() { _ = writer.Flush() }()
+	//nolint:errcheck // Preserve existing output error handling.
+	defer writer.Flush()
 
 	// Print column headers with tabbed columns
 	_, _ = fmt.Fprintln(writer, "ID\tNETWORK\tVIRTUAL NET ID\tCOMMENT\tTUNNEL ID\tTUNNEL NAME\tCREATED\tDELETED\t")

@@ -21,11 +21,9 @@ const VersionText = "Print the version"
 
 // Commands returns cloudflared's complete top-level command tree.
 func Commands(showVersion func(c *cli.Context)) []*cli.Command {
-	tunnelCommands := tunnel.Commands()
-	accessCommands := access.Commands()
-	commands := make([]*cli.Command, 0, 2+len(tunnelCommands)+1+len(accessCommands)+1+1)
-	commands = append(commands,
-		&cli.Command{
+	//nolint:prealloc // Keep the extracted runtime command construction unchanged.
+	commands := []*cli.Command{
+		{
 			Name:   "update",
 			Action: cliutil.ConfiguredAction(updater.Update),
 			Usage:  "Update the agent if a new version exists",
@@ -56,9 +54,9 @@ Otherwise, does nothing.
 
 To determine if an update happened in a script, check for error code 11.`,
 		},
-		&cli.Command{
+		{
 			Name: "version",
-			Action: func(c *cli.Context) error {
+			Action: func(c *cli.Context) (err error) {
 				if c.Bool("short") {
 					fmt.Println(strings.Split(c.App.Version, " ")[0])
 					return nil
@@ -76,10 +74,10 @@ To determine if an update happened in a script, check for error code 11.`,
 				},
 			},
 		},
-	)
-	commands = append(commands, tunnelCommands...)
+	}
+	commands = append(commands, tunnel.Commands()...)
 	commands = append(commands, proxydns.Command()) // removed feature, only here for error message
-	commands = append(commands, accessCommands...)
+	commands = append(commands, access.Commands()...)
 	commands = append(commands, tail.Command())
 	commands = append(commands, management.Command())
 	return commands

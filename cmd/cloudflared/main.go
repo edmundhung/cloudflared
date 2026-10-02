@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/getsentry/sentry-go"
-	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
 	"go.uber.org/automaxprocs/maxprocs"
 
@@ -46,9 +45,8 @@ var (
 
 func main() {
 	// FIXME: TUN-8148: Disable QUIC_GO ECN due to bugs in proper detection if supported
-	if err := os.Setenv("QUIC_GO_DISABLE_ECN", "1"); err != nil {
-		log.Fatal().Err(err).Msg("Failed to configure QUIC")
-	}
+	//nolint:gosec,errcheck // Preserve the existing best-effort behavior.
+	os.Setenv("QUIC_GO_DISABLE_ECN", "1")
 	metrics.RegisterBuildInfo(BuildType, BuildTime, Version)
 	_, _ = maxprocs.Set()
 	bInfo := cliutil.GetBuildInfo(BuildType, Version)

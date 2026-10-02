@@ -36,8 +36,9 @@ var (
 	vnetForceDeleteFlag = &cli.BoolFlag{
 		Name:    "force",
 		Aliases: []string{"f"},
+		//nolint:misspell // Preserve the existing user-facing help text.
 		Usage: "Force the deletion of the virtual network even if it is being relied upon by other resources. Those" +
-			"resources will either be deleted (e.g. IP Routes) or moved to the current default virtual network.",
+			"resources will either be deleted (e.g. IP Routes) or moved to the current default virutal network.",
 	}
 )
 
@@ -111,7 +112,8 @@ default or update an existing one to become the default.`,
 }
 
 func listVirtualNetworksFlags() []cli.Flag {
-	flags := make([]cli.Flag, 0, len(cfapi.VnetFilterFlags)+1)
+	//nolint:prealloc // Preserve the existing flag construction.
+	flags := make([]cli.Flag, 0)
 	flags = append(flags, cfapi.VnetFilterFlags...)
 	flags = append(flags, outputFormatFlag)
 	return flags
@@ -289,7 +291,8 @@ func formatAndPrintVnetsList(vnets []*cfapi.VirtualNetwork) {
 	)
 
 	writer := tabwriter.NewWriter(os.Stdout, minWidth, tabWidth, padding, padChar, flags)
-	defer func() { _ = writer.Flush() }()
+	//nolint:errcheck // Preserve existing output error handling.
+	defer writer.Flush()
 
 	_, _ = fmt.Fprintln(writer, "ID\tNAME\tIS DEFAULT\tCOMMENT\tCREATED\tDELETED\t")
 

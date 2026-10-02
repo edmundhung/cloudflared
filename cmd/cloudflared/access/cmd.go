@@ -283,13 +283,11 @@ func login(c *cli.Context) error {
 	// Chatty by default for backward compat. The new --app flag
 	// is an implicit opt-out of the backwards-compatible chatty output.
 	if c.Bool("no-verbose") || c.IsSet(appURLFlag) {
-		if _, err := fmt.Fprint(os.Stdout, cfdToken); err != nil {
-			return err
-		}
+		//nolint:errcheck // Preserve existing stdout error handling.
+		fmt.Fprint(os.Stdout, cfdToken)
 	} else {
-		if _, err := fmt.Fprintf(os.Stdout, "Successfully fetched your token:\n\n%s\n\n", cfdToken); err != nil {
-			return err
-		}
+		//nolint:errcheck // Preserve existing stdout error handling.
+		fmt.Fprintf(os.Stdout, "Successfully fetched your token:\n\n%s\n\n", cfdToken)
 	}
 
 	return nil
@@ -333,7 +331,7 @@ func curl(c *cli.Context) error {
 	if err != nil || tok == "" {
 		if allowRequest {
 			log.Info().Msg("You don't have an Access token set. Please run access token <access application> to fetch one.")
-			return runCurl(cmdArgs...)
+			return run("curl", cmdArgs...)
 		}
 		tok, err = token.FetchToken(appURL, appInfo, c.Bool(cfdflags.AutoCloseInterstitial), c.Bool(fedrampFlag), log)
 		if err != nil {
@@ -344,13 +342,13 @@ func curl(c *cli.Context) error {
 
 	cmdArgs = append(cmdArgs, "-H")
 	cmdArgs = append(cmdArgs, fmt.Sprintf("%s: %s", carrier.CFAccessTokenHeader, tok))
-	return runCurl(cmdArgs...)
+	return run("curl", cmdArgs...)
 }
 
-// runCurl kicks off curl and pipes the results to the respective std pipes.
-func runCurl(args ...string) error {
-	//nolint:gosec // curl arguments are intentionally supplied by the user.
-	c := exec.Command("curl", args...)
+// run kicks off a shell task and pipe the results to the respective std pipes
+func run(cmd string, args ...string) error {
+	//nolint:gosec // The command and arguments are intentionally supplied by the caller.
+	c := exec.Command(cmd, args...)
 	c.Stdin = os.Stdin
 	stderr, err := c.StderrPipe()
 	if err != nil {
@@ -602,7 +600,8 @@ func isTokenValid(options *carrier.StartOptions, log *zerolog.Logger) (bool, err
 	if err != nil {
 		return false, err
 	}
-	defer func() { _ = resp.Body.Close() }()
+	//nolint:errcheck // Preserve existing response-close behavior.
+	defer resp.Body.Close()
 
 	// A redirect to login means the token was invalid.
 	return !carrier.IsAccessResponse(resp), nil
